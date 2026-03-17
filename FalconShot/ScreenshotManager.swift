@@ -177,11 +177,29 @@ class ScreenshotManager: ObservableObject {
                     return
                 }
                 
+                var finalImage = cgImage
+                
+                // If the image has an alpha channel bit set but is likely opaque (common for screenshots),
+                // recreate it without alpha to avoid HEIC encoder warnings and unnecessary file size.
+                if cgImage.alphaInfo != .none {
+                    let width = cgImage.width
+                    let height = cgImage.height
+                    let colorSpace = CGColorSpaceCreateDeviceRGB()
+                    let bitmapInfo = CGImageAlphaInfo.noneSkipLast.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+                    
+                    if let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0, space: colorSpace, bitmapInfo: bitmapInfo) {
+                        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)))
+                        if let strippedImage = context.makeImage() {
+                            finalImage = strippedImage
+                        }
+                    }
+                }
+                
                 let options: [CFString: Any] = [
-                    kCGImageDestinationLossyCompressionQuality: 0.8
+                    kCGImageDestinationLossyCompressionQuality: 0.9
                 ]
                 
-                CGImageDestinationAddImage(destination, cgImage, options as CFDictionary)
+                CGImageDestinationAddImage(destination, finalImage, options as CFDictionary)
                 
                 if CGImageDestinationFinalize(destination) {
                     NSSound.beep()
