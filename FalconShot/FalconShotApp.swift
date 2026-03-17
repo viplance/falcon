@@ -9,9 +9,19 @@ import SwiftUI
 
 @main
 struct FalconShotApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @StateObject private var screenshotManager = ScreenshotManager()
+    
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        MenuBarExtra("FalconShot", systemImage: "camera.viewfinder") {
+            MenuBarView()
+                .environmentObject(screenshotManager)
+        }
+        .menuBarExtraStyle(.menu)
+        
+        Settings {
+            SettingsView()
+                .environmentObject(screenshotManager)
         }
     }
 }
