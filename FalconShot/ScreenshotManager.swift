@@ -151,16 +151,14 @@ class ScreenshotManager: ObservableObject {
     }
     
     private func saveToDisk(_ image: NSImage) {
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmap.representation(using: .png, properties: [:]) else {
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             NSSound.beep()
-            print("Failed to create PNG data")
+            print("Failed to get CGImage from NSImage")
             return
         }
         
         let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.png]
+        savePanel.allowedContentTypes = [.heic]
         savePanel.canCreateDirectories = true
         savePanel.isExtensionHidden = false
         savePanel.title = "Save Screenshot"
@@ -168,19 +166,30 @@ class ScreenshotManager: ObservableObject {
         
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        savePanel.nameFieldStringValue = "Screenshot \(dateFormatter.string(from: Date())).png"
+        savePanel.nameFieldStringValue = "Screenshot \(dateFormatter.string(from: Date())).heic"
         
         // Show the panel
         savePanel.begin { response in
             if response == .OK, let url = savePanel.url {
-                do {
-                    try pngData.write(to: url)
+                guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.heic.identifier as CFString, 1, nil) else {
+                    NSSound.beep()
+                    print("Failed to create image destination")
+                    return
+                }
+                
+                let options: [CFString: Any] = [
+                    kCGImageDestinationLossyCompressionQuality: 0.8
+                ]
+                
+                CGImageDestinationAddImage(destination, cgImage, options as CFDictionary)
+                
+                if CGImageDestinationFinalize(destination) {
                     NSSound.beep()
                     print("Screenshot saved to: \(url.path)")
-                } catch {
+                } else {
                     NSSound.beep()
-                    NSSound.beep() // Double beep for error
-                    print("Failed to save screenshot: \(error)")
+                    NSSound.beep()
+                    print("Failed to finalize image destination")
                 }
             }
         }
