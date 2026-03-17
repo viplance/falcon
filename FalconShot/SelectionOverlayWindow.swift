@@ -163,10 +163,8 @@ class SelectionView: NSView {
         
         // Update cursor based on location
         switch edge {
-        case .topLeft, .bottomRight:
-            NSCursor.arrow.set() // diagonal resize
-        case .topRight, .bottomLeft:
-            NSCursor.arrow.set() // diagonal resize  
+        case .topLeft, .bottomRight, .topRight, .bottomLeft:
+            NSCursor.crosshair.set() // Could use diagonal resize cursors if available
         case .left, .right:
             NSCursor.resizeLeftRight.set()
         case .top, .bottom:
@@ -190,7 +188,9 @@ class SelectionView: NSView {
         
         // Clear the selection area
         if selectionRect.width > 0 && selectionRect.height > 0 {
-            NSColor.clear.setFill()
+            // Use a nearly-transparent color to ensure mouse events are captured
+            // In AppKit, 100% clear areas in a transparent window can pass through clicks to windows below
+            NSColor(white: 1.0, alpha: 0.001).setFill()
             let drawRect = convertToDrawCoordinates(selectionRect)
             
             NSGraphicsContext.current?.saveGraphicsState()
@@ -305,7 +305,7 @@ class SelectionView: NSView {
             resizeEdge = getResizeEdge(at: location)
             let drawRect = convertToDrawCoordinates(selectionRect)
             
-            if resizeEdge != .none && resizeEdge != .none {
+            if resizeEdge != .none {
                 isResizing = true
                 isDragging = false
                 isMoving = false
@@ -479,6 +479,10 @@ class SelectionView: NSView {
     }
     
     override var acceptsFirstResponder: Bool {
+        return true
+    }
+    
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         return true
     }
 }
