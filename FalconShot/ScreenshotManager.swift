@@ -26,7 +26,7 @@ class ScreenshotManager: ObservableObject {
     @Published var saveDestination: SaveDestination = .buffer
     @Published var previousRect: CGRect?
     @Published var isCapturing: Bool = false
-    @Published var captureShortcut: KeyboardShortcut = KeyboardShortcut(keyCode: 23, modifiers: [.command, .shift]) // Default: ⌘⇧5
+    @Published var captureShortcut: KeyboardShortcut = KeyboardShortcut(keyCode: 22, modifiers: [.command, .shift]) // Default: ⌘⇧6
     
     private var selectionWindow: SelectionOverlayWindow?
     
