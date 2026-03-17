@@ -57,7 +57,6 @@ struct SettingsView: View {
                                 set: { newValue in
                                     if let newValue = newValue {
                                         screenshotManager.captureShortcut = newValue
-                                        screenshotManager.savePreferences()
                                     }
                                 }
                             )

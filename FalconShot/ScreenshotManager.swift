@@ -22,20 +22,54 @@ enum SaveDestination: String, CaseIterable {
 }
 
 class ScreenshotManager: ObservableObject {
-    @Published var captureMode: CaptureMode = .dynamic
-    @Published var saveDestination: SaveDestination = .buffer
-    @Published var previousRect: CGRect?
+    @Published var captureMode: CaptureMode = .dynamic {
+        didSet { savePreferences() }
+    }
+    @Published var saveDestination: SaveDestination = .buffer {
+        didSet { savePreferences() }
+    }
+    @Published var previousRect: CGRect? {
+        didSet { savePreferences() }
+    }
     @Published var isCapturing: Bool = false
-    @Published var captureShortcut: KeyboardShortcut = KeyboardShortcut(keyCode: 22, modifiers: [.command, .shift]) // Default: ⌘⇧6
+    @Published var captureShortcut: KeyboardShortcut = KeyboardShortcut(keyCode: 22, modifiers: [.command, .shift]) { // Default: ⌘⇧6
+        didSet {
+            savePreferences()
+            setupGlobalShortcut()
+        }
+    }
     
     private var selectionWindow: SelectionOverlayWindow?
     
     init() {
-        loadPreferences()
+        // Load initial values from UserDefaults
+        if let modeRaw = UserDefaults.standard.string(forKey: "captureMode"),
+           let mode = CaptureMode(rawValue: modeRaw) {
+            _captureMode = Published(initialValue: mode)
+        }
+        
+        if let destRaw = UserDefaults.standard.string(forKey: "saveDestination"),
+           let dest = SaveDestination(rawValue: destRaw) {
+            _saveDestination = Published(initialValue: dest)
+        }
+        
+        if let shortcutData = UserDefaults.standard.data(forKey: "captureShortcut"),
+           let savedShortcut = try? JSONDecoder().decode(KeyboardShortcut.self, from: shortcutData) {
+            _captureShortcut = Published(initialValue: savedShortcut)
+        }
+        
+        if let rectData = UserDefaults.standard.data(forKey: "previousRect"),
+           let rect = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSValue.self, from: rectData) {
+            _previousRect = Published(initialValue: rect.rectValue)
+        }
+        
         setupGlobalShortcut()
     }
     
     func setupGlobalShortcut() {
+        // Unregister existing first to avoid duplicates or conflicts
+        GlobalHotkeyManager.shared.unregisterHotkey()
+        
         // Use global hotkey manager for system-wide shortcuts
         GlobalHotkeyManager.shared.onHotkeyPressed = { [weak self] in
             Task { @MainActor in
@@ -131,8 +165,6 @@ class ScreenshotManager: ObservableObject {
                 case .disk:
                     saveToDisk(nsImage)
                 }
-                
-                savePreferences()
             }
             
         } catch {
@@ -215,28 +247,6 @@ class ScreenshotManager: ObservableObject {
     
     // MARK: - Preferences
     
-    private func loadPreferences() {
-        if let modeRaw = UserDefaults.standard.string(forKey: "captureMode"),
-           let mode = CaptureMode(rawValue: modeRaw) {
-            captureMode = mode
-        }
-        
-        if let destRaw = UserDefaults.standard.string(forKey: "saveDestination"),
-           let dest = SaveDestination(rawValue: destRaw) {
-            saveDestination = dest
-        }
-        
-        // Load keyboard shortcut
-        if let shortcutData = UserDefaults.standard.data(forKey: "captureShortcut"),
-           let savedShortcut = try? JSONDecoder().decode(KeyboardShortcut.self, from: shortcutData) {
-            captureShortcut = savedShortcut
-        }
-        
-        if let rectData = UserDefaults.standard.data(forKey: "previousRect"),
-           let rect = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSValue.self, from: rectData) {
-            previousRect = rect.rectValue
-        }
-    }
     
     func savePreferences() {
         UserDefaults.standard.set(captureMode.rawValue, forKey: "captureMode")
@@ -253,9 +263,6 @@ class ScreenshotManager: ObservableObject {
                 UserDefaults.standard.set(data, forKey: "previousRect")
             }
         }
-        
-        // Re-register global shortcut when it changes
-        setupGlobalShortcut()
     }
     
     deinit {
