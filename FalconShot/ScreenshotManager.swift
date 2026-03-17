@@ -9,6 +9,7 @@ import SwiftUI
 import Combine
 import ScreenCaptureKit
 import AppKit
+import UniformTypeIdentifiers
 
 enum CaptureMode: String, CaseIterable {
     case dynamic = "Dynamic"
@@ -158,28 +159,30 @@ class ScreenshotManager: ObservableObject {
             return
         }
         
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.png]
+        savePanel.canCreateDirectories = true
+        savePanel.isExtensionHidden = false
+        savePanel.title = "Save Screenshot"
+        savePanel.message = "Choose a location to save your screenshot"
+        
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        let filename = "Screenshot \(dateFormatter.string(from: Date())).png"
+        savePanel.nameFieldStringValue = "Screenshot \(dateFormatter.string(from: Date())).png"
         
-        guard let desktopURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first else {
-            NSSound.beep()
-            print("Could not find Desktop directory")
-            return
-        }
-        
-        let fileURL = desktopURL.appendingPathComponent(filename)
-        
-        do {
-            try pngData.write(to: fileURL)
-            NSSound.beep()
-            print("Screenshot saved to Desktop: \(fileURL.path)")
-        } catch {
-            NSSound.beep()
-            NSSound.beep() // Double beep for error
-            print("Failed to save screenshot: \(error)")
-            print("⚠️ If you see 'Operation not permitted', disable App Sandbox in Xcode:")
-            print("   Project → Target → Signing & Capabilities → Remove 'App Sandbox'")
+        // Show the panel
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                do {
+                    try pngData.write(to: url)
+                    NSSound.beep()
+                    print("Screenshot saved to: \(url.path)")
+                } catch {
+                    NSSound.beep()
+                    NSSound.beep() // Double beep for error
+                    print("Failed to save screenshot: \(error)")
+                }
+            }
         }
     }
     
