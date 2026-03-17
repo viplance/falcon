@@ -23,5 +23,9 @@ struct FalconShotApp: App {
             SettingsView()
                 .environmentObject(screenshotManager)
         }
+        .commands {
+            CommandGroup(replacing: .appSettings) {}
+            CommandGroup(replacing: .appTermination) {}
+        }
     }
 }

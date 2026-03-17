@@ -136,29 +136,6 @@ struct SettingsView: View {
                             Spacer()
                         }
                         
-                        HStack(spacing: 20) {
-                            Text("Open Settings:")
-                                .frame(width: 140, alignment: .leading)
-                            Text("⌘,")
-                                .font(.system(.body, design: .monospaced))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(.quaternary)
-                                .cornerRadius(4)
-                            Spacer()
-                        }
-                        
-                        HStack(spacing: 20) {
-                            Text("Quit FalconShot:")
-                                .frame(width: 140, alignment: .leading)
-                            Text("⌘Q")
-                                .font(.system(.body, design: .monospaced))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(.quaternary)
-                                .cornerRadius(4)
-                            Spacer()
-                        }
                         
                         Text("Click the shortcut field to record a new key combination.")
                             .font(.caption)

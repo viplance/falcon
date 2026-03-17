@@ -69,7 +69,6 @@ struct MenuBarView: View {
             SettingsLink {
                 Text("Settings...")
             }
-            .keyboardShortcut(",", modifiers: .command)
             
             Divider()
             
@@ -77,7 +76,6 @@ struct MenuBarView: View {
             Button("Quit FalconShot") {
                 NSApplication.shared.terminate(nil)
             }
-            .keyboardShortcut("q", modifiers: .command)
         }
         .frame(width: 250)
     }
