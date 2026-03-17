@@ -35,68 +35,14 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 } label: {
                     Text("Capture Settings")
                         .font(.headline)
                 }
-                .padding()
-                
-                // Previous Rectangle
-                GroupBox {
-                    VStack(alignment: .leading, spacing: 12) {
-                        if let rect = screenshotManager.previousRect {
-                            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
-                                GridRow {
-                                    Text("X:")
-                                        .foregroundStyle(.secondary)
-                                        .frame(width: 60, alignment: .trailing)
-                                    Text(String(format: "%.0f px", rect.origin.x))
-                                        .font(.system(.body, design: .monospaced))
-                                }
-                                
-                                GridRow {
-                                    Text("Y:")
-                                        .foregroundStyle(.secondary)
-                                        .frame(width: 60, alignment: .trailing)
-                                    Text(String(format: "%.0f px", rect.origin.y))
-                                        .font(.system(.body, design: .monospaced))
-                                }
-                                
-                                GridRow {
-                                    Text("Width:")
-                                        .foregroundStyle(.secondary)
-                                        .frame(width: 60, alignment: .trailing)
-                                    Text(String(format: "%.0f px", rect.width))
-                                        .font(.system(.body, design: .monospaced))
-                                }
-                                
-                                GridRow {
-                                    Text("Height:")
-                                        .foregroundStyle(.secondary)
-                                        .frame(width: 60, alignment: .trailing)
-                                    Text(String(format: "%.0f px", rect.height))
-                                        .font(.system(.body, design: .monospaced))
-                                }
-                            }
-                            
-                            Button("Clear Previous Rectangle") {
-                                screenshotManager.previousRect = nil
-                            }
-                            .buttonStyle(.borderless)
-                            .foregroundStyle(.red)
-                        } else {
-                            Text("No previous selection saved")
-                                .foregroundStyle(.secondary)
-                                .font(.subheadline)
-                        }
-                    }
-                    .padding()
-                } label: {
-                    Text("Previous Rectangle")
-                        .font(.headline)
-                }
                 .padding(.horizontal)
-                .padding(.bottom)
+                .padding(.vertical)
+                
                 
                 // Keyboard Shortcuts
                 GroupBox {
