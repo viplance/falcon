@@ -13,7 +13,7 @@ struct FalconShotApp: App {
     @StateObject private var screenshotManager = ScreenshotManager()
     
     var body: some Scene {
-        MenuBarExtra("FalconShot", systemImage: "camera.viewfinder") {
+        MenuBarExtra("FalconShot", image: "MenuBarIcon") {
             MenuBarView()
                 .environmentObject(screenshotManager)
         }
