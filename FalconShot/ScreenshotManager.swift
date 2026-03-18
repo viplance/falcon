@@ -10,6 +10,7 @@ import Combine
 import ScreenCaptureKit
 import AppKit
 import UniformTypeIdentifiers
+import ServiceManagement
 
 enum CaptureMode: String, CaseIterable {
     case dynamic = "Dynamic"
@@ -22,6 +23,12 @@ enum SaveDestination: String, CaseIterable {
 }
 
 class ScreenshotManager: ObservableObject {
+    @Published var loadOnStartup: Bool = true {
+        didSet { 
+            savePreferences() 
+            updateStartupRegistration()
+        }
+    }
     @Published var captureMode: CaptureMode = .dynamic {
         didSet { savePreferences() }
     }
@@ -43,6 +50,16 @@ class ScreenshotManager: ObservableObject {
     
     init() {
         // Load initial values from UserDefaults
+        if let startup = UserDefaults.standard.object(forKey: "loadOnStartup") as? Bool {
+            _loadOnStartup = Published(initialValue: startup)
+        } else {
+            // Default to true
+            _loadOnStartup = Published(initialValue: true)
+        }
+        
+        // Ensure system registration is in sync with UserDefaults preference
+        updateStartupRegistration()
+        
         if let modeRaw = UserDefaults.standard.string(forKey: "captureMode"),
            let mode = CaptureMode(rawValue: modeRaw) {
             _captureMode = Published(initialValue: mode)
@@ -88,6 +105,24 @@ class ScreenshotManager: ObservableObject {
             print("✅ Global shortcut \(captureShortcut.displayString) is active system-wide")
         } else {
             print("⚠️ Failed to register global shortcut. Using menu bar button instead.")
+        }
+    }
+    
+    private func updateStartupRegistration() {
+        do {
+            if loadOnStartup {
+                if SMAppService.mainApp.status != .enabled {
+                    try SMAppService.mainApp.register()
+                    print("Successfully registered SMAppService")
+                }
+            } else {
+                if SMAppService.mainApp.status == .enabled {
+                    try SMAppService.mainApp.unregister()
+                    print("Successfully unregistered SMAppService")
+                }
+            }
+        } catch {
+            print("Failed to update SMAppService: \(error)")
         }
     }
     
@@ -249,6 +284,7 @@ class ScreenshotManager: ObservableObject {
     
     
     func savePreferences() {
+        UserDefaults.standard.set(loadOnStartup, forKey: "loadOnStartup")
         UserDefaults.standard.set(captureMode.rawValue, forKey: "captureMode")
         UserDefaults.standard.set(saveDestination.rawValue, forKey: "saveDestination")
         

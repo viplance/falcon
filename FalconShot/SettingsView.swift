@@ -13,9 +13,14 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                // Capture Settings
+                // General & Capture Settings
                 GroupBox {
                     VStack(alignment: .leading, spacing: 12) {
+                        Toggle("Load on system start up", isOn: $screenshotManager.loadOnStartup)
+                        
+                        Divider()
+                            .padding(.vertical, 4)
+                        
                         Picker("Capture Mode:", selection: $screenshotManager.captureMode) {
                             ForEach(CaptureMode.allCases, id: \.self) { mode in
                                 Text(mode.rawValue).tag(mode)
