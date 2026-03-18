@@ -118,7 +118,7 @@ struct SettingsView: View {
                         Divider()
                             .padding(.vertical, 4)
                         
-                        Text("A powerful screenshot utility for macOS")
+                        Text("A simple screenshot utility for macOS")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         
