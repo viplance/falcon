@@ -102,9 +102,9 @@ class ScreenshotManager: ObservableObject {
         )
         
         if success {
-            print("✅ Global shortcut \(captureShortcut.displayString) is active system-wide")
+            Log.info("Global shortcut \(captureShortcut.displayString) is active system-wide")
         } else {
-            print("⚠️ Failed to register global shortcut. Using menu bar button instead.")
+            Log.error("Failed to register global shortcut. Using menu bar button instead.")
         }
     }
     
@@ -113,16 +113,16 @@ class ScreenshotManager: ObservableObject {
             if loadOnStartup {
                 if SMAppService.mainApp.status != .enabled {
                     try SMAppService.mainApp.register()
-                    print("Successfully registered SMAppService")
+                    Log.info("SMAppService registered")
                 }
             } else {
                 if SMAppService.mainApp.status == .enabled {
                     try SMAppService.mainApp.unregister()
-                    print("Successfully unregistered SMAppService")
+                    Log.info("SMAppService unregistered")
                 }
             }
         } catch {
-            print("Failed to update SMAppService: \(error)")
+            Log.error("Failed to update SMAppService: \(error)")
         }
     }
     
@@ -169,29 +169,53 @@ class ScreenshotManager: ObservableObject {
                 onScreenWindowsOnly: true
             )
             
-            guard let display = content.displays.first else {
-                print("No display found")
+            // Match SCDisplay by frame — SCDisplay.frame is in global screen coordinates (points).
+            let display = content.displays.first {
+                NSMouseInRect(NSPoint(x: rect.midX, y: rect.midY),
+                              CGRect(x: $0.frame.origin.x, y: $0.frame.origin.y,
+                                     width: $0.frame.width, height: $0.frame.height), false)
+            } ?? content.displays.first
+
+            guard let display else {
+                Log.error("No display found")
                 return
             }
-            
+
             let filter = SCContentFilter(display: display, excludingWindows: [])
-            
-            // Get the scale factor from NSScreen
-            let scaleFactor = NSScreen.main?.backingScaleFactor ?? 2.0
-            
+
+            // Capture the full display at its native pixel resolution.
+            // We set width/height = display.width/height (physical pixels) so SCKit
+            // renders 1:1 without any scaling. Then we crop the selection manually.
+            // This avoids the blur from scaling the canvas down to rect size.
             let config = SCStreamConfiguration()
-            config.width = Int(rect.width * scaleFactor)
-            config.height = Int(rect.height * scaleFactor)
-            config.sourceRect = rect
-            
-            let image = try await SCScreenshotManager.captureImage(
+            config.width = display.width    // native physical pixels, e.g. 3840
+            config.height = display.height  // native physical pixels, e.g. 2160
+            let fullImage = try await SCScreenshotManager.captureImage(
                 contentFilter: filter,
                 configuration: config
             )
-            
-            // Convert CGImage to NSImage
-            let nsImage = NSImage(cgImage: image, size: NSSize(width: rect.width, height: rect.height))
-            
+
+            // renderScale = physical pixels per logical point
+            let renderScale = CGFloat(fullImage.width) / display.frame.width
+
+            // Crop: rect uses top-left origin (from SelectionView), SCKit image too.
+            let cropRect = CGRect(
+                x: rect.origin.x * renderScale,
+                y: rect.origin.y * renderScale,
+                width: rect.width * renderScale,
+                height: rect.height * renderScale
+            )
+            guard let cgCropped = fullImage.cropping(to: cropRect) else {
+                Log.error("Failed to crop image")
+                return
+            }
+
+            let rep = NSBitmapImageRep(cgImage: cgCropped)
+            let nsImage = NSImage(size: rep.size)
+            nsImage.addRepresentation(rep)
+
+            Log.debug("rect=\(Int(rect.width))×\(Int(rect.height))pt renderScale=\(renderScale) crop=\(Int(cropRect.width))×\(Int(cropRect.height))px")
+
             // Save based on destination
             await MainActor.run {
                 switch saveDestination {
@@ -203,24 +227,40 @@ class ScreenshotManager: ObservableObject {
             }
             
         } catch {
-            print("Failed to capture screen: \(error)")
+            Log.error("Failed to capture screen: \(error)")
         }
     }
-    
+
     private func saveToClipboard(_ image: NSImage) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.writeObjects([image])
-        
-        // Visual feedback - play system sound
+
+        guard let rep = image.representations.first as? NSBitmapImageRep else {
+            pasteboard.writeObjects([image])
+            NSSound.beep()
+            Log.info("Screenshot copied to clipboard (fallback)")
+            return
+        }
+
+        if let png = rep.representation(using: .png, properties: [:]) {
+            pasteboard.setData(png, forType: .png)
+            Log.debug("clipboard: PNG \(rep.pixelsWide)×\(rep.pixelsHigh)px \(png.count / 1024)KB")
+        } else {
+            pasteboard.writeObjects([image])
+            Log.debug("clipboard: fallback NSImage")
+        }
+
         NSSound.beep()
-        print("Screenshot copied to clipboard")
+        Log.info("Screenshot copied to clipboard")
     }
     
     private func saveToDisk(_ image: NSImage) {
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+        // Use the backing CGImage directly from the first representation to avoid
+        // NSImage rescaling to 1x when proposedRect is nil.
+        guard let cgImage = (image.representations.first as? NSBitmapImageRep)?.cgImage
+                ?? image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             NSSound.beep()
-            print("Failed to get CGImage from NSImage")
+            Log.error("Failed to get CGImage from NSImage")
             return
         }
         
@@ -240,7 +280,7 @@ class ScreenshotManager: ObservableObject {
             if response == .OK, let url = savePanel.url {
                 guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.heic.identifier as CFString, 1, nil) else {
                     NSSound.beep()
-                    print("Failed to create image destination")
+                    Log.error("Failed to create image destination")
                     return
                 }
                 
@@ -262,19 +302,23 @@ class ScreenshotManager: ObservableObject {
                     }
                 }
                 
+                let repForDPI = image.representations.first as? NSBitmapImageRep
+                let dpi = repForDPI.map { 72.0 * CGFloat($0.pixelsWide) / $0.size.width } ?? 144.0
                 let options: [CFString: Any] = [
-                    kCGImageDestinationLossyCompressionQuality: 0.9
+                    kCGImageDestinationLossyCompressionQuality: 0.9,
+                    kCGImagePropertyDPIWidth: dpi,
+                    kCGImagePropertyDPIHeight: dpi,
                 ]
                 
                 CGImageDestinationAddImage(destination, finalImage, options as CFDictionary)
                 
                 if CGImageDestinationFinalize(destination) {
                     NSSound.beep()
-                    print("Screenshot saved to: \(url.path)")
+                    Log.info("Screenshot saved to: \(url.path)")
                 } else {
                     NSSound.beep()
                     NSSound.beep()
-                    print("Failed to finalize image destination")
+                    Log.error("Failed to finalize image destination")
                 }
             }
         }

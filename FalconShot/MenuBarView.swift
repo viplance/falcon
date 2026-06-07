@@ -71,10 +71,17 @@ struct MenuBarView: View {
             }
             
             Divider()
-            
+
             // Exit
             Button("Quit FalconShot") {
                 NSApplication.shared.terminate(nil)
+            }
+
+            if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+                Text("Version \(version)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
             }
         }
         .frame(width: 250)

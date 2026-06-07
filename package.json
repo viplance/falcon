@@ -1,0 +1,11 @@
+{
+  "name": "falconshot",
+  "version": "1.0.1",
+  "description": "FalconShot macOS Application",
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "start": "pkill -x FalconShot; open build/FalconShot.app",
+    "stop": "pkill -x FalconShot",
+    "logs": "tail -f ~/Library/Containers/enotix.FalconShot/Data/Library/Logs/FalconShot/falconshot.log"
+  }
+}
